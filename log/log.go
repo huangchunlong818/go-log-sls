@@ -26,21 +26,26 @@ type Logger struct {
 // 配置
 type LogConfig struct {
 	Endpoint, AccessKeyId, AccessKeySecret, ProjectName, LogStoreName, DingAccessToken, DingSecret string
-	LogChanNum                                                                                     int //日志通道数量，默认1000
-	LogConsumeNum                                                                                  int //消费日志通道协程数量，默认3
+	LogChanNum                                                                                     int  //日志通道数量，默认1000
+	LogConsumeNum                                                                                  int  //消费日志通道协程数量，默认3
+	Debug                                                                                          bool //调试模式，如果是true，直接打印日志
 }
 
 // NewLogger 初始化日志系统
 func NewLogger(config LogConfig) *Logger {
-	// RAM用户角色的临时安全令牌。此处取值为空，表示不使用临时安全令牌。
-	SecurityToken := ""
-	// 创建日志服务Client。
-	provider := sls.NewStaticCredentialsProvider(config.AccessKeyId, config.AccessKeySecret, SecurityToken)
-	client := sls.CreateNormalInterfaceV2(config.Endpoint, provider)
+	var client sls.ClientInterface
 
-	//配置默认值
-	if config.LogChanNum <= 0 {
-		config.LogChanNum = 100 //日志通道数量，默认1000
+	if !config.Debug {
+		// RAM用户角色的临时安全令牌。此处取值为空，表示不使用临时安全令牌。
+		SecurityToken := ""
+		// 创建日志服务Client。
+		provider := sls.NewStaticCredentialsProvider(config.AccessKeyId, config.AccessKeySecret, SecurityToken)
+		client = sls.CreateNormalInterfaceV2(config.Endpoint, provider)
+
+		//配置默认值
+		if config.LogChanNum <= 0 {
+			config.LogChanNum = 100 //日志通道数量，默认1000
+		}
 	}
 
 	logSystem := &Logger{
@@ -57,7 +62,10 @@ func NewLogger(config LogConfig) *Logger {
 		config: &config,
 	}
 
-	logSystem.dispatchLogs() // 异步推送日志
+	if !config.Debug {
+		logSystem.dispatchLogs() // 异步推送日志
+	}
+
 	return logSystem
 }
 
@@ -109,6 +117,11 @@ func (l *Logger) Fatal(message any) {
 
 // 判断日志通道以及是否推送钉钉
 func (l *Logger) doLog(message any, types string) {
+	if l.config.Debug {
+		fmt.Println("["+types+"]:", message)
+		return
+	}
+
 	org, _ := json.Marshal(message)
 	//判断是否关闭日志通道
 	if l.Check() {

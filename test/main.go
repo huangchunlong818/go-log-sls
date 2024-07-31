@@ -14,6 +14,7 @@ func main() {
 		LogStoreName:    "ttt",
 		DingAccessToken: "ttt",
 		DingSecret:      "ccc",
+		Debug:           false, //如果是true 会直接打印
 	}
 	//获取操作实例
 	logs := log.NewLogger(config)
